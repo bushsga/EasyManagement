@@ -6,7 +6,7 @@ import { Toaster } from "react-hot-toast";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "StockFlow - Smart Inventory Management",
+  title: "EasyManagement - Smart Inventory Management",
   description: "Track stock, sales, and profit effortlessly",
 };
 

@@ -68,3 +68,32 @@
     @apply bg-secondary-100 text-secondary-700 px-4 py-2 rounded-lg hover:bg-secondary-200 transition;
   }
 }
+
+/* Make tables scrollable on mobile */
+.overflow-x-auto {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Better touch targets on mobile */
+@media (max-width: 768px) {
+  button, 
+  a,
+  [role="button"] {
+    min-height: 44px;
+  }
+  
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on focus in iOS */
+  }
+  
+  .card, 
+  .bg-white.rounded-xl {
+    margin-bottom: 16px;
+  }
+
+    .mobile-menu-button {
+    display: block;
+    z-index: 100;
+  }
+}

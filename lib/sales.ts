@@ -8,6 +8,7 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
   Timestamp,
 } from "firebase/firestore";
 import { Product } from "./products";
@@ -84,7 +85,23 @@ export async function getTodaySales(businessId: string) {
     where("createdAt", "<", Timestamp.fromDate(tomorrow))
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Sale[];
+  const sales: Sale[] = [];
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    sales.push({
+      id: doc.id,
+      productId: data.productId,
+      productName: data.productName,
+      quantitySold: data.quantitySold,
+      sellingPrice: data.sellingPrice,
+      totalAmount: data.totalAmount,
+      profit: data.profit,
+      soldBy: data.soldBy,
+      businessId: data.businessId,
+      createdAt: data.createdAt,
+    });
+  });
+  return sales;
 }
 
 // Get sales for a specific date range
@@ -97,7 +114,23 @@ export async function getSalesByDateRange(businessId: string, startDate: Date, e
     where("createdAt", "<=", Timestamp.fromDate(endDate))
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Sale[];
+  const sales: Sale[] = [];
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    sales.push({
+      id: doc.id,
+      productId: data.productId,
+      productName: data.productName,
+      quantitySold: data.quantitySold,
+      sellingPrice: data.sellingPrice,
+      totalAmount: data.totalAmount,
+      profit: data.profit,
+      soldBy: data.soldBy,
+      businessId: data.businessId,
+      createdAt: data.createdAt,
+    });
+  });
+  return sales;
 }
 
 // Calculate profit summary for a business (today, week, month)
@@ -121,4 +154,119 @@ export async function getProfitSummary(businessId: string, days: number = 1) {
     itemsSold,
     salesCount: sales.length,
   };
+}
+
+// Get all sales for a business (with optional date range)
+export async function getAllSales(
+  businessId: string,
+  startDate?: Date,
+  endDate?: Date
+) {
+  const salesRef = collection(db, "sales");
+  let q;
+
+  if (startDate && endDate) {
+    q = query(
+      salesRef,
+      where("businessId", "==", businessId),
+      where("createdAt", ">=", Timestamp.fromDate(startDate)),
+      where("createdAt", "<=", Timestamp.fromDate(endDate)),
+      orderBy("createdAt", "desc")
+    );
+  } else {
+    q = query(
+      salesRef,
+      where("businessId", "==", businessId),
+      orderBy("createdAt", "desc")
+    );
+  }
+
+  const snapshot = await getDocs(q);
+  const sales: Sale[] = [];
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    sales.push({
+      id: doc.id,
+      productId: data.productId,
+      productName: data.productName,
+      quantitySold: data.quantitySold,
+      sellingPrice: data.sellingPrice,
+      totalAmount: data.totalAmount,
+      profit: data.profit,
+      soldBy: data.soldBy,
+      businessId: data.businessId,
+      createdAt: data.createdAt,
+    });
+  });
+  return sales;
+}
+
+// Get sales summary for date range
+export async function getSalesSummary(businessId: string, startDate: Date, endDate: Date) {
+  const sales = await getAllSales(businessId, startDate, endDate);
+  const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
+  const totalProfit = sales.reduce((sum, s) => sum + s.profit, 0);
+  const totalCost = totalSales - totalProfit;
+  const totalItems = sales.reduce((sum, s) => sum + s.quantitySold, 0);
+  
+  return {
+    totalSales,
+    totalProfit,
+    totalCost,
+    totalItems,
+    transactionCount: sales.length,
+  };
+}
+
+// Export sales to CSV
+export async function exportSalesToCSV(
+  businessId: string,
+  startDate?: Date,
+  endDate?: Date
+) {
+  const sales = await getAllSales(businessId, startDate, endDate);
+  
+  // Define CSV headers
+  const headers = [
+    "Product Name",
+    "Quantity",
+    "Selling Price",
+    "Total Amount",
+    "Profit",
+    "Sold By",
+    "Date",
+    "Time"
+  ];
+  
+  // Convert sales to CSV rows
+  const rows = sales.map((sale) => {
+    const date = sale.createdAt?.toDate() || new Date();
+    return [
+      sale.productName,
+      sale.quantitySold.toString(),
+      sale.sellingPrice.toString(),
+      sale.totalAmount.toString(),
+      sale.profit.toString(),
+      sale.soldBy,
+      date.toLocaleDateString(),
+      date.toLocaleTimeString()
+    ];
+  });
+  
+  // Combine headers and rows
+  const csvContent = [
+    headers.join(","),
+    ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+  ].join("\n");
+  
+  // Add BOM for Excel compatibility
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.setAttribute("href", url);
+  link.setAttribute("download", `sales_export_${new Date().toISOString().split("T")[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
