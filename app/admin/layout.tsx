@@ -14,7 +14,7 @@ import {
   Menu,
   X
 } from "lucide-react";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 const navItems = [
@@ -34,6 +34,18 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Check auth state on mount
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.push("/login");
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -51,6 +63,18 @@ export default function AdminLayout({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-secondary-50">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-secondary-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-secondary-50">
       {/* Mobile Menu Button */}
@@ -61,7 +85,7 @@ export default function AdminLayout({
         {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
-      {/* Sidebar - Slides from left, text always visible when open */}
+      {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-secondary-200 shadow-xl transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -104,7 +128,7 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {/* Main Content - padding top on mobile to avoid hamburger overlap */}
+      {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="p-4 pt-16 md:p-8 md:pt-8">
           {children}

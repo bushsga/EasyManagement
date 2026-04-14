@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { LogOut, ShoppingCart, Receipt, Calculator, Menu, X } from "lucide-react";
 import Link from "next/link";
@@ -18,6 +18,18 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Check auth state on mount
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.push("/login");
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -33,6 +45,18 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-secondary-50">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-secondary-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-secondary-50">
@@ -51,7 +75,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         } md:relative md:translate-x-0`}
       >
         <div className="p-6 pt-16 md:pt-6">
-          <h1 className="text-2xl font-bold text-primary-600">EasyManagement</h1>
+          <h1 className="text-2xl font-bold text-primary-600">StockFlow</h1>
           <p className="text-sm text-secondary-500 mt-1">Staff Portal</p>
         </div>
         
