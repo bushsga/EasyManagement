@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { db } from "@/lib/firebase";
-import { Trash2, Plus, Mail } from "lucide-react";
+import { Trash2, Plus, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface StaffMember {
@@ -21,6 +21,7 @@ export default function AdminStaffPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newStaffEmail, setNewStaffEmail] = useState("");
   const [newStaffPassword, setNewStaffPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [businessId, setBusinessId] = useState("");
   const auth = getAuth();
   const user = auth.currentUser;
@@ -72,34 +73,35 @@ export default function AdminStaffPage() {
     }
 
     try {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("email", "==", newStaffEmail));
-      const existing = await getDocs(q);
-      if (!existing.empty) {
-        toast.error("Staff with this email already exists");
-        return;
-      }
+      // Create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(auth, newStaffEmail, newStaffPassword);
+      const staffUser = userCredential.user;
 
-      await setDoc(doc(db, "users", newStaffEmail), {
+      // Create Firestore document for staff
+      await setDoc(doc(db, "users", staffUser.uid), {
         email: newStaffEmail,
         role: "staff",
         businessId: businessId,
         createdAt: new Date().toISOString(),
-        password: newStaffPassword,
       });
 
-      toast.success(`Staff added: ${newStaffEmail}`);
+      toast.success(`Staff created successfully! Email: ${newStaffEmail}`);
       setNewStaffEmail("");
       setNewStaffPassword("");
       setShowAddModal(false);
       fetchStaff();
     } catch (error: any) {
-      toast.error("Failed to add staff: " + error.message);
+      console.error(error);
+      if (error.code === "auth/email-already-in-use") {
+        toast.error("Email already used. Try a different email.");
+      } else {
+        toast.error("Failed to create staff: " + error.message);
+      }
     }
   };
 
   const handleRemoveStaff = async (staffId: string, staffEmail: string) => {
-    if (confirm(`Remove ${staffEmail}?`)) {
+    if (confirm(`Remove ${staffEmail} from staff?`)) {
       try {
         await deleteDoc(doc(db, "users", staffId));
         toast.success("Staff removed");
@@ -127,7 +129,7 @@ export default function AdminStaffPage() {
         <div className="bg-white rounded-xl p-12 text-center">Loading staff...</div>
       ) : staff.length === 0 ? (
         <div className="bg-white rounded-xl p-12 text-center border border-secondary-100">
-          <p className="text-secondary-500">No staff members yet. Click "Add Staff" to invite someone.</p>
+          <p className="text-secondary-500">No staff members yet. Click "Add Staff" to create one.</p>
         </div>
       ) : (
         <>
@@ -197,17 +199,26 @@ export default function AdminStaffPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Password</label>
-                <input
-                  type="password"
-                  value={newStaffPassword}
-                  onChange={(e) => setNewStaffPassword(e.target.value)}
-                  className="w-full border border-secondary-300 rounded-lg px-3 py-2"
-                  placeholder="at least 6 characters"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newStaffPassword}
+                    onChange={(e) => setNewStaffPassword(e.target.value)}
+                    className="w-full border border-secondary-300 rounded-lg px-3 py-2 pr-10"
+                    placeholder="at least 6 characters"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowAddModal(false)} className="flex-1 btn-secondary">Cancel</button>
-                <button onClick={handleAddStaff} className="flex-1 btn-primary">Add Staff</button>
+                <button onClick={handleAddStaff} className="flex-1 btn-primary">Create Staff</button>
               </div>
             </div>
           </div>
